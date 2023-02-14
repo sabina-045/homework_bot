@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
-import requests
+import logging
 import os
 import time
-import telegram
-import logging
-from exceptions import (
-    MessageSendError, NewStatusError, EndpointError, NewHomeworkAbsent
-)
 
+import requests
+import telegram
+from dotenv import load_dotenv
+
+from exceptions import (EndpointError, MessageSendError, NewHomeworkAbsent,
+                        NewStatusError)
 
 logging.basicConfig(
     handlers=[logging.FileHandler('program.log', 'w', 'utf-8')],
