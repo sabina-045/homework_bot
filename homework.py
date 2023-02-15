@@ -86,11 +86,14 @@ def check_response(response):
 
 def parse_status(homework):
     """Получение информации о статусе домашней работы."""
+    old_status = ''
     if not homework.get('homework_name'):
         logging.error('В ответе API нет ключа homework_name')
         raise KeyError
     homework_name = homework.get('homework_name')
-    old_status = ''
+    if not homework.get('homework_name'):
+        logging.error('В ответе API нет ключа status')
+        raise KeyError
     status = homework.get('status')
     if status == old_status:
         logging.debug(f'Статус {status} не обновился')
@@ -111,6 +114,8 @@ def main():   # noqa: C901
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
+    old_message = ''
+    error_message_old = ''
     while True:
         if not check_tokens():
             logging.critical('Отсутствует переменная окружения')
@@ -122,7 +127,6 @@ def main():   # noqa: C901
                 homework = check_response(response)
             except IndexError:
                 raise NewHomeworkAbsent
-            old_message = ''
             try:
                 message = parse_status(homework)
                 if message != old_message:
@@ -134,8 +138,8 @@ def main():   # noqa: C901
         except Exception as error:
             message = f'Программа молчит по причине: {error}'
             logging.error(f'В работе программы сбой, ошибка: {error}')
-            error_message_old = ''
             if message != error_message_old:
+                error_message_old = message
                 bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
                 logging.info(f'Сообщение об ошибке {error} отправлено в чат')
 
