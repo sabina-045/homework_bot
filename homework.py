@@ -7,7 +7,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import EndpointError, MessageSendError
+from exceptions import EndpointError
 
 
 load_dotenv()
@@ -41,7 +41,8 @@ def send_message(bot, message):
         logging.debug(f'Сообщение {message} успешно отправлено')
     except telegram.error.TelegramError as error:
         logging.error(f'{error}')
-        raise MessageSendError
+
+        return False
 
 
 def get_api_answer(timestamp):
@@ -96,24 +97,26 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
+    if not check_tokens():
+        logging.critical('Отсутствует переменная окружения')
+        sys.exit('Отсутствуют необходимые токены')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     old_message = ''
-    error_message_old = ''
     while True:
-        if not check_tokens():
-            logging.critical('Отсутствует переменная окружения')
-            break
         try:
             response = get_api_answer(timestamp)
             homework = check_response(response)
-            if len(homework) != 0:
+            if homework:
                 homework = homework[0]
                 message = parse_status(homework)
                 if message != old_message:
-                    send_message(bot, message)
-                    old_message = message
-                    timestamp = int(response.get('current_date'))
+                    if not send_message(bot, message):
+                        old_message = message
+                        timestamp = int(response.get('current_date'))
+                    else:
+                        logging.error('Сообщение о смене статуса'
+                                      'не отправлено')
                 else:
                     logging.info('Статус домашней работы не обновился')
             else:
@@ -122,10 +125,16 @@ def main():
         except Exception as error:
             message = f'Программа молчит по причине: {error}'
             logging.error(f'В работе программы сбой, ошибка: {error}')
-            if message != error_message_old:
-                error_message_old = message
-                bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-                logging.info(f'Сообщение об ошибке {error} отправлено в чат')
+            if message != old_message:
+                if not send_message(bot, message):
+                    old_message = message
+                    logging.info(f'Сообщение об ошибке {error}'
+                                 'отправлено в чат')
+                else:
+                    logging.error(f'Сообщение об ошибке {error}'
+                                  'не удалось отправить в чат')
+            else:
+                logging.info('Нет новых сообщений об ошибках')
 
         time.sleep(RETRY_PERIOD)
 
